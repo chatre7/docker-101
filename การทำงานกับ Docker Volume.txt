@@ -1,0 +1,269 @@
+การทำงานกับ Docker Volume
+ในการทำงานกับ container เราต้องพยายามไม่ให้ container เก็บ data เพื่อคงความเป็น Stateless ดังนั้นตรงไหนที่มี data ที่มีการเปลี่ยนแปลงไม่ว่าจะเป็น source code, log file 
+หรือ data ใน database เราก็ต้องย้ายสิ่งเหล่านี้ออกไปไว้ใน volume เพราะถ้าเราลบ container ออก volume จะยังอยู่เหมือนเดิม ทำให้เราสามารภนำ data ที่อยู่ใน Volume นั้นกลับมาใช้ใหม่ได้ โดยที่ไม่ต้องเริ่มต้นทุกอย่าใหม่ทั้งหมด
+
+ถ้าเราไม่ได้ Mount Volume ไฟล์หรือ Folder นั้นของเราจะหายไปพร้อมกับ Container
+
+
+Docker Volume คืออะไร?
+Docker Volume คือระบบการจัดการไฟล์ของ Docker ที่จะทำหน้าที่ mount file หรือ folder ที่อยู่ในเครื่อง Host เข้าไปยัง path ใน container ตามที่เรากำหนดไว้ด้วย keyword VOLUME ใน Dockerfile หรือ parameter -v ตอนสั่ง docker run
+
+เราจะสร้าง Volume ไว้เพื่อให้ Container ของเรายังคงความเป็น Stateless เอาไว้
+
+วิธีการ Mount Volume
+วิธีการ Mount volume เข้าไปใน container เราจะสามารถเขียนได้ 2 แบบคือ
+
+-v แบบนี้เราจะเห็นได้โดยทั่วไป ซึ่่งเขียนสั้นกว่า
+–mount แบบนี้เราจะเขียนยาวกว่า แต่สามารถกำหนด options ได้มากกว่า -v
+เราสามารถแยกวิธีการ Mount volume ออกเป็น 3 วิธีดังนี้
+
+1. Bind Mounts
+Bind Mounts คือการ Mount file หรือ folder จากเครื่อง host เข้าไปใน container
+
+ตัวอย่าง เราจะ mount เอา folder ที่เรากำลังทำงานอยู่ตอนนี้(pwd) เข้าไปใน container โดยจะ mount เข้าไปใน folder /target
+
+$ docker run -d -it \
+  --name devtest \
+  -v "$(pwd)"/target:/app \
+  nginx:latest
+
+
+คำสั่งที่เราใช้ในตัวอย่างนี้ จะสามารถใช้งานได้แค่ linux และ MacOS ส่วนถ้าเป็น Windows(Powershell) เราต้องเปลี่ยนเป็น
+
+$ docker run -d -it \
+  --name devtest \
+  -v ${PWD}/target:/app \
+  nginx:latest
+บน MacOS หรือ Linux เราใช้วงเล็บ() แต่บน Windows เราใช้ปีกกา{} ถ้าต้องการ run บน command prompt เราจะใช้ %cd% แทน ${PWD}
+
+ตัวอย่าง การ Bind Mounts ด้วย –mount
+
+$ docker run -d -it \
+  --name devtest \
+  --mount type=bind,source="$(pwd)"/target,target=/app \
+  nginx:latest
+
+
+2. Volumes
+Volumes คือการสร้าง volume ขึ้นมาใหม่ เราจะทำได้ 2 แบบคือ
+
+Anonymous Volume แบบนี้เราจะไม่ได้ตั้งชื่อ Volume เราจะระบุแค่ path ของ file หรือ folder ใน container ที่ต้องการ mount ออกมา ซึ่ง path ที่ระบุหลังจาก -v คือ path ใน container
+
+ตัวอย่าง การ Mount Volume แบบไม่มีชื่อ(Anonymous)
+
+$ docker run -d \
+--name devtest \
+-v /app \
+nginx:latest
+
+หลังจาก run คำสั่งนี้ docker จะนำ hash ของ volume มาเป็นชื่อ
+
+Named Volume การสร้าง volume แบบนี้จะเป็นที่นิยมมากกว่า เพราะเวลาลบออกจะทำได้ง่ายกว่า แบบแรกนั้นเขียนสั้นกว่านิดหน่อยแต่จัดการยากกว่า
+
+ตัวอย่าง การสร้าง volume ขึ้นมาโดยใช้ -v และตั้งชื่อว่า my-volume
+
+$ docker run -d \
+--name devtest \
+-v my-volume:/app \
+nginx:latest
+ตัวอย่าง การสร้าง volume ขึ้นมาโดยใช้ –mount
+
+$ docker run -d \
+--name devtest \
+--mount source=my-volume,target=/app \
+nginx:latest
+
+การใช้ Mount แบบ Volumes docker จะนำไฟล์ไปเก็บไว้ใน /var/lib/docker/volumes/[ชื่อ volume]/_data
+
+
+ความแตกต่างระหว่าง Volume และ Bind Mount
+Volumes จะทำการ backup และ migrate ได้ง่ายกว่า Bind Mount.
+สามารถจัดการ Volumes ด้วย docker CLI หรือ Docker API ได้
+Volumes สามารถใช้ได้ทั้ง Linux และ Windows containers
+Volumes สามารถ mount เข้าไปใน container ได้มากกว่า 1 container
+Volume drivers ทำให้เราสามารถใช้ volume ที่อยู่ข้ามเครื่องได้ (ทั้ง On-Prem และ On-Cloud)
+Volume drivers สามารถ encrypt data ที่อยู่ใน volume นั้นได้
+Volumes ที่ถูกสร้างขึ้นมาใหม่สามารถใส่ content ที่ถูกสร้างขึ่้นด้วย container เข้าไปได้
+Volumes บน Docker Desktop(บน MacOS และ Windows) จะมี performance ที่ดีกว่า Bind mounts มาก
+
+3. Tmpfs Mounts
+Tmpfs Mounts คือ การเก็บ data ไว้ใน Memory ไม่ได้ทำการจัดเก็บไว้ใน file แต่ทางเลือกนี้จะใช้ได้แค่ docker บน linux เท่านั้น
+
+ตัวอย่าง การ mount แบบ tmpfs ด้วยการใช้ –tmpfs
+
+$ docker run -d -it \
+  --name tmptest \
+  --tmpfs /app \
+  nginx:latest
+ตัวอย่าง การ mount แบบ tmpfs ด้วยการใช้ –mount
+
+docker run -d -it \
+  --name tmptest \
+  --mount type=tmpfs,destination=/app \
+  nginx:latest
+ข่้อตำกัดของ Tmpfs คือ
+ไม่สามารถ share ข้าม container ได้เหมือนกับ Volume และ Bind Mount
+ใช้ได้แค่ docker บน linux เท่านั้น
+การกำหนด permission จะหายไปเมื่อ restart container
+การสร้างและการจัดการ Docker Volume
+ในตัวอย่างด้านบนนั้นเราได้สร้าง volume ขึ้นมาพร้อมกับ container หลังจากนี้เราจะพูดถึงคำสั่งต่างๆที่เรามักจะใช้ในการจัดการกับ volume
+
+สร้าง Docker Volume
+เราสามารถสร้าง volume ขึ้นมาเองโดยที่ไม่ต้องใช้ docker run ซึ่งข้อดีของการสร้าง container ขึ้นมาเองคือเราสามาถ mount volume ที่ได้สร้างขึ้นนี้เข้าไปใน หลายๆ container ได้ โดยที่มีขั้นตอนดังนี้
+
+Bind Mounts ไม่สามารถ share volume ข้าม container ได้เราจึงต้องใช้ Volumes
+
+สร้าง volume ชื่อว่า my-volume2 โดยใช้คำสั่งนี้
+docker volume create my-volume2
+ถ้า container devtest นั้น run อยู่ให้ stop container นั้นด้วยคำสั่ง
+docker rm -f [contianer ID]
+แต่ถ้ายังไม่มี container run อยู่ก็ให้ข้ามไปขั้นตอนต่อไปได้เลย
+สร้าง container ขึ้นมาใหม่โดยเพิ่ม volume เข้าไป
+docker run -d --name devtest -v my-volume2:/app nginx:latest
+เราสามารถสร้างนำ volume นี้ไปใช้กับ container ตัวอื่นได้
+ docker run -d --name devtest2 -v my-volume2:/app nginx:latest
+เราจะใช้ชื่อ volume เหมือนกัน เพื่ิอให้ docker ใช้ volume เดียวกัน
+
+การระบุ Mount Path
+เราสามารถตรวจสอบว่า volume ของเราจัดเก็บไฟล์ไว้ที่ไหนให้ใช้คำสั่ง
+
+$ docker volume inspec my-volume
+ผลลัพธ์จะออกมาเป็นแบบนี้
+
+[
+    {
+        "CreatedAt": "2023-11-26T09:27:11Z",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/my-volume/_data",
+        "Name": "my-volume",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+เราใช้คำสั่ง docker inspect [ชื่อ container] เพื่อเข้าไปดูข้อมูลอื่นๆ ที่ไม่สามารถหาได้จาก docker volume inspect เช่น Mode, Readwrite permission และ destination ที่เราต้องกำหนดตอน run container
+
+"Mounts": [
+    {
+        "Type": "volume",
+        "Name": "my-volume",
+        "Source": "/var/lib/docker/volumes/my-volume/_data",
+        "Destination": "/app",
+        "Driver": "local",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": ""
+    }
+]
+
+
+การ list volumes ทั้งหมดออกมา
+เราสามารถ list volumes ทั้งหมดออกมาได้่ด้วยคำสั่ง
+
+$ docker volume ls
+เราสามารถ filter volume ออกมาด้วย
+
+ค้นหาตาม name ของ volume
+
+$ docker volume ls -f name=my-volume
+ค้นหาตาม driver
+
+$ docker volume ls -f driver=local
+ค้นหาตาม label ซึ่งถ้าจะใช้ label เราต้องสร้าง volume ที่มี label ก่อน
+
+docker volume create my-volume --label is-timelord=yes
+หลังจากนั้นเราสามารถค้นหาจาก label ด้วย filter แบบนี้
+
+$ docker volume ls -f is-timelord=yes
+หรือเราจะค้นหาแค่ชื่อ label แบบนี้(ขอแค่มี label ไม่ได้สนใจ value ของมัน)
+
+$ docker volume ls -f is-timelord
+นอกจากนี้เรายังสามารถใส่ filter เข้าไปหลายๆตัว
+
+$ docker volume ls -f is-timelord=yes -f is-timelord=no
+การลบ Docker Volume
+การลบ volume นั้นเราสามารทำได้หลายวิธีโดยเราสามารถเลือกลบทีละตัว หรือเลือกลบทั้งหมดทีเดียวก็ได้ ซึ่งคำสั่งในการลบ volume มีดังนี้
+
+ลบ volume เป็นรายตัว
+เราสามารถเลือกลบ volume โดยระบุชื่อเข้าไปแบบนี้
+
+$ docker volume rm my-volume
+ลบ Volume ทั้งหมด(Prune)
+เราสามารถลบ Volume ทั้งหมดออก ด้วยคำสั่ง
+
+$ docker volume prune
+ลบ Anonymous Volume
+ถ้าเราต้องการลบ Anonymous Volume ออกให้ใส่ –rm เข้าไปใน command ด้วย เมื่อเราสั่ง stop container docker จะลบ container พร้อมด้วย volume ที่ไม่ได้ตั้งชื่อ(Anonymous Volume) ออกไปด้วย
+
+$ docker run --rm -v /foo -v awesome:/bar busybox top
+ในตัวอย่างนี้ docker จะลบ volume ที่เก็บ /foo ออกแต่จะไม่ได้ลบ volume ที่ชื่อ awesone ออก
+
+Docker volume size
+เราสามารถตรวจสอบขนาดของ volume แต่ละตัวได้ด้วยคำสั่ง
+
+$ docker system df
+ผลลัพธ์จจะออกมาเป็นแบบนี้
+
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          2         1         115.7MB   69.19MB (59%)
+Containers      2         1         2.19kB    1.095kB (50%)
+Local Volumes   2         1         10.35MB   10.35MB (100%)
+Build Cache     20        0         12.96MB   12.96MB
+ใน Local Volumes จะระบุว่าตอนนี้มี 2 volume ใช้พื้นที่ไปทั้่งหมด 10.35MB และมี RECLAIMABLE เป็น 100%
+
+Reclaimable คือพื้นที่ที่มีข้อมูลอยู่แต่ไม่ได้ถูกใช้งานเนื่องจากไม่มี container ที่ mount volume นี้ หรือจะพูดแบบง่ายก็คือพื้นที่ที่สามารถลบได้ เวลาเราใช้งาน docker เราจึงต้องคอยมาลบ volume ที่ไม่ได้ใช้ออกเพื่อนำพื้นที่กลับมาใช้งานต่อไป
+
+ค่า dfefault ของ Docker for Mac จะมี limit size ของ volume อยู่ที่ 64G
+
+ถ้าเราอยากดูรายละเอียดข้างใน volume แต่ละตัวว่าใช้พื้นที่ไปเท่าไหร่แล้วให้ใช้คำสั่ง
+
+$ docker system df -v
+ผลลัพธ์จะมีรายละเอียดของทุกๆ section เราต้องเลื่อนไปหา section ของ volume ที่จะมีรายละเอียดแบบนี้่
+
+Local Volumes space usage:
+
+VOLUME NAME                                                        LINKS     SIZE
+6355e90847f3125897ca9afc7b3bdebd5fd271fc672818bf43dc19b4744a6f74   0         10.35MB
+my-volume                                                          1         0B
+ซึ่งตอนนี้ผมมี 2 volume ที่เป็น Anonymous Volume ที่ใช้พื้นที่ไป 10.35MB แต่ myvol ที่สร้างขึ้่นมาแต่ยังไม่ได้ใส่ content อะไรลงไปเลยมีพื้นที่ 0MB
+
+ถ้าเห็นจากตัวอย่างนี้แสดงว่าผมควรจะไปลบ Anonymous Volume ชื่อ 6355… ออกเนื่องจากกินพื้นที่ไป 10.35MB แต่ไม่ได้มี container ไหนใช้งาน เพื่อคอนพื้นที่กลับมา
+
+$ docker volume rm 6355e90847f3125897ca9afc7b3bdebd5fd271fc672818bf43dc19b4744a6f74
+Docker volume permission
+เราสามารถกำหนด permission ของ volume ได้ด้วยการเติม permission เข้าไปหลังจาก target path แบบนี้่
+
+$ docker run -d \
+--name devtest \
+-v my-volume:/app:ro \
+nginx:latest
+ในตัวอย่างนี้เราจะกำหนดให้ volume ชื่อว่า my-volume สามารถอ่านได้อย่างเดียวเท่านั้น(read only: ro) โดย default ถ้าเราไม่ใส่เราจะมี permission เป็น read write(re)
+
+ถ้าเราใช้คำสั่ง docker inspect devtest เข้าไปดูเราจะพบว่า my-volume ของเราจะมีค่า Mode เป็น ro และ RW เป็น false
+
+"Mounts": [
+    {
+        "Type": "volume",
+        "Name": "my-volume",
+        "Source": "/var/lib/docker/volumes/my-volume/_data",
+        "Destination": "/app",
+        "Driver": "local",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": ""
+    }
+]
+Docker volume permission denied
+ในบางกรณีเราจะได้รับ error บน linux server เนื่องจาก user ที่เรา run อยู่นี้ไม่สามารถเข้าไปจัดการ ข้อมูลใน path ของ volume ซึ่งเราสามารถแก้ไขได้ด้วย
+
+ปรับสิทธิของ user ที่จะใช้ให้สามารถเข้าถึง path ของ volume ได้
+FROM your-image
+USER root
+RUN mkdir -p /backup \
+&& chown -R your-user /backup
+USER your-user
+เข้าไปปรับ permission โดยใช้ chown command แบบนี้
+$ docker exec -u 0:0 your-container chown -R your-user /backup
+
+
+https://docs.docker.com/storage/volumes
